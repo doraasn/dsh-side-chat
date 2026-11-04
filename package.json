@@ -1,0 +1,55 @@
+{
+  "name": "@local/dsh-side-chat",
+  "version": "0.1.0",
+  "description": "DSH 侧边会话：Ctrl+Alt+S 从当前会话 fork 上下文，在右栏开独立对话，关闭即归档。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "scripts": {
+    "test": "node test/run.mjs"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "side-chat",
+    "sidebar",
+    "fork"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doraasn/dsh-side-chat.git"
+  },
+  "homepage": "https://github.com/doraasn/dsh-side-chat#readme",
+  "bugs": {
+    "url": "https://github.com/doraasn/dsh-side-chat/issues"
+  }
+}
