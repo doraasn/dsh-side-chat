@@ -32,3 +32,9 @@ DSH 侧边会话：`Ctrl+Alt+S` 从当前会话分叉一份上下文，在右栏
 npm test                                              # 假的 ctx + 最小 React，跑注册面/快捷键/fork/归档/资源流
 node <skill>/scripts/check-plugin.mjs .                # 身份、图标、元数据自检
 ```
+
+## 发布
+
+- 仓库：`doraasn/dsh-side-chat`；main 保留开发身份 `@local/dsh-side-chat`，tag `v0.1.0` 指向发布身份快照。
+- **对外包名是 `dsh-side-chat-panel`**：npm 上的 `dsh-side-chat` 已被他人占用（0.1.0~0.1.2），若沿用原名，市场索引会把条目指到别人的 npm 包，`npmHas()` 判真后 `source.type` 变成 `npm`。
+- 已收录进 `doraasn/dsh-plugins-index`（category `chat`，labels `sidebar`/`no-deps`）。

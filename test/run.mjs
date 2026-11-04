@@ -33,7 +33,11 @@ function createHarness(overrides = {}) {
         if (overrides.forkError) throw overrides.forkError
         return overrides.childId ?? CHILD
       },
-      list: { getSnapshot: () => ({ byId: overrides.byId ?? { [PARENT]: { projections: { values: { title: '父标题' } } } } }) },
+      list: { getSnapshot: () => ({ byId: overrides.byId ?? {
+        /* fork 子会话会继承父会话的持久标题，所以打开那一刻两边都能读到 */
+        [PARENT]: { projections: { values: { title: '父标题' } } },
+        [CHILD]: { projections: { values: { title: '父标题' } } },
+      } }) },
       binding: () => overrides.parentSelection === undefined ? undefined : {
         session: { projections: { faceOf: () => ({ getSnapshot: () => ({ next: overrides.parentSelection, lastUsed: null }) }) } },
       },
@@ -79,7 +83,7 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   plugin.apply(ctx)
 
   assert.equal(reg.tabTypes.length, 1, '应注册 1 个 tab 类型')
-  assert.equal(reg.slots.length, 1, '应注册 1 个 tab body')
+  assert.equal(reg.slots.length, 2, '应注册 tab body + 对话体两个槽')
   assert.equal(reg.closeHandlers.length, 1, '应注册 1 个关闭钩子')
   assert.equal(reg.shortcuts.length, 1, '应注册 1 个快捷键')
   assert.equal(reg.providers.length, 1, '应注册 1 个资源提供者')
@@ -92,9 +96,12 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   assert.equal(type.canOpen('dsh-resource://file/session/x/y.md'), false)
   assert.equal(type.title('dsh-resource://sidechat/session/unknown'), '侧聊')
 
-  assert.equal(reg.slots[0].spec.name, 'sidebar.right.pane.tab')
-  assert.equal(reg.slots[0].spec.key, '@local/dsh-side-chat')
-  assert.deepEqual(reg.slots[0].spec.children, { 'sidebar.chat.conversation': { kind: 'single', scope: 'session' } })
+  const paneTab = reg.slots.find((s) => s.spec.name === 'sidebar.right.pane.tab')
+  const chatSlot = reg.slots.find((s) => s.spec.name === 'sidechat.chat')
+  assert.ok(paneTab, '必须注册 sidebar.right.pane.tab 本体')
+  assert.ok(chatSlot, '必须自己注册 sidechat.chat 对话体（跨插件复用 sidebar.chat.conversation 不生效）')
+  assert.equal(paneTab.spec.key, '@local/dsh-side-chat')
+  assert.deepEqual(paneTab.spec.children, { 'sidechat.chat': { kind: 'single', scope: 'session' } })
 
   const shortcut = reg.shortcuts[0]
   assert.equal(shortcut.id, 'sidechat.open')
@@ -189,7 +196,7 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   assert.deepEqual(calls.released, [CHILD], 'abort 后必须释放 retain 引用')
 }
 
-/* ---------- 8. tab body 两种分支 ---------- */
+/* ---------- 8. tab body 两种分支 + 对话体兜底 ---------- */
 {
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children: children.length === 1 ? children[0] : children } }),
@@ -197,9 +204,10 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   const plugin = captured.factory((name) => name === 'react' ? react : {})
   const { ctx, reg } = createHarness({ mounted: PARENT })
   plugin.apply(ctx)
-  const Body = reg.slots[0].comp
+  const Body = reg.slots.find((s) => s.spec.name === 'sidebar.right.pane.tab').comp
+  const Conversation = reg.slots.find((s) => s.spec.name === 'sidechat.chat').comp
 
-  const render = (props) => {
+  const render = (component, props) => {
     const walk = (n) => {
       if (n === null || n === undefined) return ''
       if (typeof n === 'string' || typeof n === 'number') return String(n)
@@ -207,11 +215,11 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
       if (typeof n.type === 'function') return walk(n.type(n.props))
       return walk(n.props?.children)
     }
-    return walk(Body(props))
+    return walk(component(props))
   }
 
   // 8a 占位（还没有 value）
-  const loading = render({
+  const loading = render(Body, {
     useResource: () => ({ status: 'loading', value: undefined, failure: undefined }),
     useTabInfo: () => ({ tab: { contentId: ADDRESS } }),
     SessionProvider: ({ children }) => children,
@@ -219,14 +227,25 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   })
   assert.match(loading, /正在打开侧边会话/)
 
-  // 8b 正常：把会话交给 SessionProvider，再渲染共享对话槽
-  const live = render({
+  // 8b 正常：把会话交给 SessionProvider，再渲染自己的对话槽
+  const live = render(Body, {
     useResource: () => ({ status: 'live', value: { sessionId: CHILD, reference: {} }, failure: undefined }),
     useTabInfo: () => ({ tab: { contentId: ADDRESS } }),
     SessionProvider: ({ children }) => children,
     renderSlot: (name) => `[slot:${name}]`,
   })
-  assert.match(live, /\[slot:sidebar\.chat\.conversation\]/)
+  assert.match(live, /\[slot:sidechat\.chat\]/)
+
+  // 8c 对话体：有内容时透传工厂槽，没有时给诊断文案而不是空白
+  const conversationProps = (content) => ({
+    sessionId: CHILD,
+    useSession: (select) => select({ blank: false, awaitingFirstTurn: false, running: false, openState: 'open', promptAttempted: true }),
+    useConversation: (select) => select({ activeTargets: new Set() }),
+    useSessions: (select) => select({ byId: { [CHILD]: { blank: false } } }),
+    renderFactorySlot: () => content,
+  })
+  assert.match(render(Conversation, conversationProps('[factory:conversation.content]')), /\[factory:conversation\.content\]/)
+  assert.match(render(Conversation, conversationProps(null)), /对话内容暂不可用/)
 }
 
 console.log('✓ side-chat 客户端自测全部通过')
