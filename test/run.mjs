@@ -65,6 +65,7 @@ function createHarness(overrides = {}) {
       register: (spec, comp) => { reg.slots.push({ spec, comp }); return () => {} },
     },
     shortcuts: { register: (cmd) => { reg.shortcuts.push(cmd); return () => {} } },
+    workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: overrides.archived ?? [] }) } },
     uiWorkspace: { archiveSession: async (id, options) => calls.archive.push({ id, options }) },
     remote: {
       session: {
@@ -140,11 +141,13 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
 
   assert.deepEqual(calls.fork, [{ sessionId: PARENT }], 'fork 不带 atSeq（取最近已完成轮次）')
   assert.equal(calls.openResource.length, 1)
-  assert.equal(calls.openResource[0].address, ADDRESS)
+  assert.ok(calls.openResource[0].address.startsWith(ADDRESS), '地址前缀必须是本插件的会话地址')
+  assert.match(calls.openResource[0].address, /\?t=/, '标题必须编进地址，tab 打开时就地取用')
   assert.equal(calls.openResource[0].options.kind, 'sidechat')
   assert.equal(calls.rename[0].title, '侧聊·父标题')
   assert.equal(calls.selectModel.length, 0, '与默认一致时不应调用 selectModel')
-  assert.equal(reg.tabTypes[0].title(ADDRESS), '侧聊·父标题', 'tab 打开时应已拿到标题')
+  assert.equal(reg.tabTypes[0].title(calls.openResource[0].address), '侧聊·父标题', 'tab 打开时应已拿到标题')
+  assert.equal(reg.tabTypes[0].title(ADDRESS), '侧聊·父标题', '没编标题时退回会话投影')
 }
 
 /* ---------- 4. 模型与默认不同 → 继承 ---------- */
@@ -203,10 +206,11 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   assert.deepEqual(calls.released, [CHILD], 'abort 后必须释放 retain 引用')
 }
 
-/* ---------- 8. tab body 两种分支 + 对话体兜底 ---------- */
+/* ---------- 8. tab body 分支 + 对话体兜底 + 归档自动关 tab ---------- */
 {
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children: children.length === 1 ? children[0] : children } }),
+    useEffect: (fn) => { fn() },
   }
   const plugin = captured.factory((name) => name === 'react' ? react : {})
   const { ctx, reg } = createHarness({ mounted: PARENT })
@@ -225,25 +229,31 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
     return walk(component(props))
   }
 
+  const tabProps = (extra) => ({
+    useResource: () => ({ status: 'live', value: { sessionId: CHILD, reference: {} }, failure: undefined }),
+    useTabInfo: () => ({ tab: { contentId: ADDRESS, actions: { close: extra?.close ?? (() => {}) } } }),
+    useWorkspaces: (select) => select({ archivedSessionIds: extra?.archived ?? [] }),
+    SessionProvider: ({ children }) => children,
+    renderSlot: (name) => `[slot:${name}]`,
+  })
+
   // 8a 占位（还没有 value）
   const loading = render(Body, {
+    ...tabProps(),
     useResource: () => ({ status: 'loading', value: undefined, failure: undefined }),
-    useTabInfo: () => ({ tab: { contentId: ADDRESS } }),
-    SessionProvider: ({ children }) => children,
-    renderSlot: () => '',
   })
   assert.match(loading, /正在打开侧边会话/)
 
   // 8b 正常：把会话交给 SessionProvider，再渲染自己的对话槽
-  const live = render(Body, {
-    useResource: () => ({ status: 'live', value: { sessionId: CHILD, reference: {} }, failure: undefined }),
-    useTabInfo: () => ({ tab: { contentId: ADDRESS } }),
-    SessionProvider: ({ children }) => children,
-    renderSlot: (name) => `[slot:${name}]`,
-  })
-  assert.match(live, /\[slot:sidechat\.chat\]/)
+  assert.match(render(Body, tabProps()), /\[slot:sidechat\.chat\]/)
 
-  // 8c 对话体：有内容时透传工厂槽，没有时给诊断文案而不是空白
+  // 8c 该会话在左侧树被归档 → 自动关 tab
+  let closed = 0
+  const archivedView = render(Body, tabProps({ archived: [CHILD], close: () => { closed += 1 } }))
+  assert.equal(closed, 1, '归档后必须调用 tab.actions.close()')
+  assert.match(archivedView, /该会话已归档/)
+
+  // 8d 对话体：有内容时透传工厂槽，没有时给诊断文案而不是空白
   const conversationProps = (content) => ({
     sessionId: CHILD,
     useSession: (select) => select({ blank: false, awaitingFirstTurn: false, running: false, openState: 'open', promptAttempted: true }),
@@ -253,6 +263,15 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   })
   assert.match(render(Conversation, conversationProps('[factory:conversation.content]')), /\[factory:conversation\.content\]/)
   assert.match(render(Conversation, conversationProps(null)), /对话内容暂不可用/)
+}
+
+/* ---------- 9. 已归档的会话被关闭时不再重复归档 ---------- */
+{
+  const { ctx, reg, calls } = createHarness({ mounted: PARENT, archived: [CHILD] })
+  loadPlugin().apply(ctx)
+  reg.closeHandlers[0].handler(PARENT, { contentId: ADDRESS })
+  await tick()
+  assert.equal(calls.archive.length, 0)
 }
 
 console.log('✓ side-chat 客户端自测全部通过')
