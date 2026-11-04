@@ -1,5 +1,5 @@
 {
-  "name": "@local/dsh-side-chat",
+  "name": "dsh-side-chat-panel",
   "version": "0.1.3",
   "description": "DSH 侧边会话：Ctrl+Alt+S 从当前会话 fork 上下文，在右栏开独立对话，关闭即归档。",
   "type": "module",
@@ -51,5 +51,8 @@
   "homepage": "https://github.com/doraasn/dsh-side-chat#readme",
   "bugs": {
     "url": "https://github.com/doraasn/dsh-side-chat/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
