@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-side-chat",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DSH 侧边会话：Ctrl+Alt+S 从当前会话 fork 上下文，在右栏开独立对话，关闭即归档。",
   "type": "module",
   "main": "lib/index.js",

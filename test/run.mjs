@@ -45,6 +45,13 @@ function createHarness(overrides = {}) {
         calls.retained.push(id)
         return { release: () => calls.released.push(id) }
       },
+      using: async (id, _options, operation) => operation({
+        binding: {
+          session: {
+            rename: async (title) => { calls.rename.push({ sessionId: id, title }); return { ok: true, value: {} } },
+          },
+        },
+      }),
     },
     resources: { register: (p) => { reg.providers.push(p); return () => {} } },
     sidebarRightTabs: { register: (d) => { reg.tabTypes.push(d); return () => {} } },
