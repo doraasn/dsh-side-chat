@@ -38,9 +38,17 @@ function createHarness(overrides = {}) {
         [PARENT]: { projections: { values: { title: '父标题' } } },
         [CHILD]: { projections: { values: { title: '父标题' } } },
       } }) },
-      binding: () => overrides.parentSelection === undefined ? undefined : {
-        session: { projections: { faceOf: () => ({ getSnapshot: () => ({ next: overrides.parentSelection, lastUsed: null }) }) } },
-      },
+      binding: (id) => ({
+        session: {
+          projections: {
+            faceOf: (key) => ({
+              getSnapshot: () => key === 'title'
+                ? (overrides.byId?.[id]?.projections?.values?.title ?? (id === PARENT ? '父标题' : undefined))
+                : { next: overrides.parentSelection ?? null, lastUsed: null },
+            }),
+          },
+        },
+      }),
       retain: (id) => {
         calls.retained.push(id)
         return { release: () => calls.released.push(id) }
@@ -173,6 +181,21 @@ const loadPlugin = () => captured.factory((name) => name === 'react' ? { createE
   await tick(); await tick()
   assert.equal(calls.openResource.length, 0)
   assert.equal(calls.archive.length, 0)
+}
+
+/* ---------- 5b. 读不到父标题：不改名，也不写「侧聊」 ---------- */
+{
+  const { ctx, reg, calls } = createHarness({ mounted: PARENT, byId: {} })
+  const plugin = loadPlugin()
+  // 让绑定与列表都读不到标题
+  const noTitle = { ...ctx, sessions: { ...ctx.sessions, binding: () => undefined } }
+  plugin.apply(noTitle)
+  reg.shortcuts[0].resolve({ region: 'page', modal: null, target: null }).run()
+  await tick(); await tick()
+
+  assert.equal(calls.rename.length, 0, '标题未知时不应改名')
+  assert.equal(calls.openResource.length, 1)
+  assert.ok(!calls.openResource[0].address.includes('?t='), '地址里不应编入标题')
 }
 
 /* ---------- 6. 关闭 → 归档（带 stopActivity） ---------- */
