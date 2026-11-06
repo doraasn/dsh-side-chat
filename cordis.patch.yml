@@ -2,5 +2,5 @@
 # name 必须与 package.json 的 name 一致，否则启动报 duplicate factory registration。
 - insert:
     - id: side-chat
-      name: '@local/dsh-side-chat'
+      name: 'dsh-side-chat'
       config: {}
