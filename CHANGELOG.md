@@ -1,7 +1,14 @@
 # 变更记录
 
-对外包名 `dsh-side-chat-panel`（仓库 `doraasn/dsh-side-chat`，开发身份 `@local/dsh-side-chat`）。
-索引固定 pin 到 `vX.Y.Z` tag 的 commit，展示文案由 `dsh-plugins-index` 维护。
+对外包名 = **`dsh-side-chat`**（与仓库名统一，自 0.1.7 起；0.1.0~0.1.6 曾用 `dsh-side-chat-panel`）。
+开发身份 `@local/dsh-side-chat` 始终未变。索引固定 pin 到 `vX.Y.Z` tag 的 commit。
+
+## 0.1.7
+
+- 对外包名 `dsh-side-chat-panel` → `dsh-side-chat`，与 GitHub 仓库名统一。
+  起因：npm 上 `dsh-side-chat` 被第三方占用（0.1.0~0.1.2），早期担心索引判 `npmHas()` 后切到 npm 源；
+  现在索引改为强制 git 源（`ALLOW_NPM_SOURCE = false`），撞名不再影响安装，故按仓库名统一。
+- 影响：插件 id 随之改变，从市场安装的用户需要重装；本机 `link:` 安装走开发身份，id 未变、无需重装。
 
 ## 0.1.6
 

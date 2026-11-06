@@ -35,6 +35,8 @@ node <skill>/scripts/check-plugin.mjs .                # 身份、图标、元�
 
 ## 发布
 
-- 仓库：`doraasn/dsh-side-chat`；main 保留开发身份 `@local/dsh-side-chat`，tag `v0.1.0` 指向发布身份快照。
-- **对外包名是 `dsh-side-chat-panel`**：npm 上的 `dsh-side-chat` 已被他人占用（0.1.0~0.1.2），若沿用原名，市场索引会把条目指到别人的 npm 包，`npmHas()` 判真后 `source.type` 变成 `npm`。
+- 仓库：`doraasn/dsh-side-chat`；main 保留开发身份 `@local/dsh-side-chat`，`vX.Y.Z` tag 指向发布身份快照。
+- **对外包名 = `dsh-side-chat`**（与仓库名统一，自 0.1.7 起）。历史上曾用 `dsh-side-chat-panel`：当时 npm 上 `dsh-side-chat` 已被第三方占用（0.1.0~0.1.2），担心索引把条目切到 npm 源；现在索引强制走 git 源（`ALLOW_NPM_SOURCE = false`），撞名不再影响安装，因此按仓库名统一。
 - 已收录进 `doraasn/dsh-plugins-index`（category `chat`，labels `sidebar`/`no-deps`）。
+- 插件 id 由包名决定：0.1.7 起从 `dsh-side-chat-panel` 变为 `dsh-side-chat`，**从市场安装的用户需要重装**；本机 `link:` 安装走开发身份 `@local/dsh-side-chat`，id 未变，无需重装。
+
